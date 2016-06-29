@@ -49,6 +49,11 @@ NS_CLASS_AVAILABLE_IOS(7_0) @interface SLKTextViewController : UIViewController 
                                                                                 UICollectionViewDelegate, UICollectionViewDataSource,
                                                                                 UIGestureRecognizerDelegate, UIAlertViewDelegate>
 
+/** Toolbar */
+@property (nonatomic, strong) UIView* cotalkerToolBar;
+/** Toolbar Auto-Layout height constraints used for updating their constants */
+@property (nonatomic, strong) NSLayoutConstraint *cotalkerToolBarHC;
+
 /** The main table view managed by the controller object. Created by default initializing with -init or initWithNibName:bundle: */
 @property (nonatomic, readonly) UITableView *_Nullable tableView;
 

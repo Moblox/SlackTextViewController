@@ -2125,13 +2125,15 @@ CGFloat const SLKAutoCompletionViewDefaultHeight = 140.0;
 
 - (void)slk_setupViewConstraints
 {
-    NSDictionary *views = @{@"scrollView": self.scrollViewProxy,
+    NSDictionary *views = @{@"cotalkerToolbar" : self.cotalkerToolBar,
+                            @"scrollView": self.scrollViewProxy,
                             @"autoCompletionView": self.autoCompletionView,
                             @"typingIndicatorView": self.typingIndicatorProxyView,
                             @"textInputbar": self.textInputbar,
                             };
     
-    [self.view addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"V:|[scrollView(0@750)][typingIndicatorView(0)]-0@999-[textInputbar(0)]|" options:0 metrics:nil views:views]];
+    [self.view addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|[cotalkerToolbar]|" options:0 metrics:nil views:views]];
+    [self.view addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"V:|[scrollView(0@750)][typingIndicatorView(0)]-0@999-[textInputbar(0)]-2-[cotalkerToolbar(0)]-2-|" options:0 metrics:nil views:views]];
     [self.view addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"V:|-(>=0)-[autoCompletionView(0@750)][typingIndicatorView]" options:0 metrics:nil views:views]];
     [self.view addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|[scrollView]|" options:0 metrics:nil views:views]];
     [self.view addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|[autoCompletionView]|" options:0 metrics:nil views:views]];
@@ -2142,6 +2144,7 @@ CGFloat const SLKAutoCompletionViewDefaultHeight = 140.0;
     self.autoCompletionViewHC = [self.view slk_constraintForAttribute:NSLayoutAttributeHeight firstItem:self.autoCompletionView secondItem:nil];
     self.typingIndicatorViewHC = [self.view slk_constraintForAttribute:NSLayoutAttributeHeight firstItem:self.typingIndicatorProxyView secondItem:nil];
     self.textInputbarHC = [self.view slk_constraintForAttribute:NSLayoutAttributeHeight firstItem:self.textInputbar secondItem:nil];
+    self.cotalkerToolBarHC = [self.view slk_constraintForAttribute:NSLayoutAttributeHeight firstItem:self.cotalkerToolBar secondItem:nil];
     self.keyboardHC = [self.view slk_constraintForAttribute:NSLayoutAttributeBottom firstItem:self.view secondItem:self.textInputbar];
     
     [self slk_updateViewConstraints];
@@ -2303,6 +2306,16 @@ CGFloat const SLKAutoCompletionViewDefaultHeight = 140.0;
     return YES;
 }
 
+#pragma mark - Getters
+-(UIView*) cotalkerToolBar
+{
+    if (!_cotalkerToolBar) {
+        _cotalkerToolBar = [[UIView alloc] init];
+        _cotalkerToolBar.translatesAutoresizingMaskIntoConstraints = NO;
+        [_cotalkerToolBar setBackgroundColor:[UIColor redColor]];
+    }
+    return _cotalkerToolBar;
+}
 
 #pragma mark - View lifeterm
 
@@ -2315,6 +2328,9 @@ CGFloat const SLKAutoCompletionViewDefaultHeight = 140.0;
 {
     [self slk_unregisterNotifications];
 
+    _cotalkerToolBarHC = nil;
+    _cotalkerToolBar = nil;
+    
     _tableView.delegate = nil;
     _tableView.dataSource = nil;
     _tableView = nil;
