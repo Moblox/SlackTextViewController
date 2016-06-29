@@ -176,7 +176,8 @@ CGFloat const SLKAutoCompletionViewDefaultHeight = 140.0;
     [self.view addSubview:self.autoCompletionView];
     [self.view addSubview:self.typingIndicatorProxyView];
     [self.view addSubview:self.textInputbar];
-    
+    [self.view addSubview:self.cotalkerToolBar];
+
     [self slk_setupViewConstraints];
     
     [self slk_registerKeyCommands];
