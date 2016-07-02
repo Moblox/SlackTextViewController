@@ -42,6 +42,7 @@ CGFloat const SLKAutoCompletionViewDefaultHeight = 140.0;
 @property (nonatomic, strong) NSLayoutConstraint *typingIndicatorViewHC;
 @property (nonatomic, strong) NSLayoutConstraint *autoCompletionViewHC;
 @property (nonatomic, strong) NSLayoutConstraint *keyboardHC;
+@property (nonatomic, strong) NSLayoutConstraint *cotalkerSeparatorHC;
 
 // YES if the user is moving the keyboard with a gesture
 @property (nonatomic, assign, getter = isMovingKeyboard) BOOL movingKeyboard;
@@ -1310,6 +1311,25 @@ CGFloat const SLKAutoCompletionViewDefaultHeight = 140.0;
 
 
 #pragma mark - Notification Events
+- (void)slk_willHide:(NSNotification *)notification {
+    
+    if (self.cotalkerSeparatorHC.constant > 0.0f) {
+        self.cotalkerSeparatorHC.constant = 0.0f;
+        NSTimeInterval duration = [notification.userInfo[UIKeyboardAnimationDurationUserInfoKey] doubleValue];
+        [UIView animateWithDuration:duration animations:^{
+            [self.view layoutIfNeeded];
+            [notification.userInfo setValue:@TRUE forKey:@"COT_HEIGHT_MODIFIED"];
+            [self slk_willShowOrHideKeyboard:notification];
+        }];
+    } else {
+        [self slk_willShowOrHideKeyboard:notification];
+    }
+}
+
+- (void)slk_willShow:(NSNotification *)notification {
+    [self slk_willShowOrHideKeyboard:notification];
+}
+
 
 - (void)slk_willShowOrHideKeyboard:(NSNotification *)notification
 {
@@ -1332,8 +1352,25 @@ CGFloat const SLKAutoCompletionViewDefaultHeight = 140.0;
     
     // Skips if it's not the expected textView and shouldn't force adjustment of the text input bar.
     // This will also dismiss the text input bar if it's visible, and exit auto-completion mode if enabled.
+    NSInteger curve = [notification.userInfo[UIKeyboardAnimationCurveUserInfoKey] integerValue];
+    NSTimeInterval duration = [notification.userInfo[UIKeyboardAnimationDurationUserInfoKey] doubleValue];
+    
+    CGRect beginFrame = [notification.userInfo[UIKeyboardFrameBeginUserInfoKey] CGRectValue];
+    CGRect endFrame = [notification.userInfo[UIKeyboardFrameEndUserInfoKey] CGRectValue];
+    
     if (![currentResponder isEqual:self.textView] && ![self forceTextInputbarAdjustmentForResponder:currentResponder]) {
         [self slk_dismissTextInputbarIfNeeded];
+        
+        if ([notification.userInfo objectForKey:@"COT_HEIGHT_MODIFIED"] == nil) {
+            CGFloat newHeight = endFrame.size.height;
+            newHeight = newHeight - self.cotalkerToolBarHC.constant - self.textInputbarHC.constant;
+            if (newHeight < 0.0f) newHeight = 0.0f;
+            
+            self.cotalkerSeparatorHC.constant = newHeight;
+            [UIView animateWithDuration:duration animations:^{
+                [self.view layoutIfNeeded];
+            }];
+        }
         return;
     }
     
@@ -1367,12 +1404,6 @@ CGFloat const SLKAutoCompletionViewDefaultHeight = 140.0;
     self.keyboardHC.constant = [self slk_appropriateKeyboardHeightFromNotification:notification];
     self.scrollViewHC.constant = [self slk_appropriateScrollViewHeight];
     
-    
-    NSInteger curve = [notification.userInfo[UIKeyboardAnimationCurveUserInfoKey] integerValue];
-    NSTimeInterval duration = [notification.userInfo[UIKeyboardAnimationDurationUserInfoKey] doubleValue];
-    
-    CGRect beginFrame = [notification.userInfo[UIKeyboardFrameBeginUserInfoKey] CGRectValue];
-    CGRect endFrame = [notification.userInfo[UIKeyboardFrameEndUserInfoKey] CGRectValue];
     
     void (^animations)() = ^void() {
         // Scrolls to bottom only if the keyboard is about to show.
@@ -2133,9 +2164,9 @@ CGFloat const SLKAutoCompletionViewDefaultHeight = 140.0;
                             @"textInputbar": self.textInputbar,
                             };
     
-    [self.view addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|[cotalkerToolBar]|" options:0 metrics:nil views:views]];
-    [self.view addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"V:|[scrollView(0@750)][typingIndicatorView(0)]-0@999-[textInputbar(0)][cotalkerToolBar(0)]|" options:0 metrics:nil views:views]];
+    [self.view addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"V:|[scrollView(0@750)]-0-[typingIndicatorView(0)]-0@999-[textInputbar(0)][cotalkerToolBar(0)]|" options:0 metrics:nil views:views]];
     [self.view addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"V:|-(>=0)-[autoCompletionView(0@750)][typingIndicatorView]" options:0 metrics:nil views:views]];
+    [self.view addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|[cotalkerToolBar]|" options:0 metrics:nil views:views]];
     [self.view addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|[scrollView]|" options:0 metrics:nil views:views]];
     [self.view addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|[autoCompletionView]|" options:0 metrics:nil views:views]];
     [self.view addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|[typingIndicatorView]|" options:0 metrics:nil views:views]];
@@ -2149,6 +2180,14 @@ CGFloat const SLKAutoCompletionViewDefaultHeight = 140.0;
     self.keyboardHC = [self.view slk_constraintForAttribute:NSLayoutAttributeBottom firstItem:self.view secondItem:self.cotalkerToolBar];
     
     [self slk_updateViewConstraints];
+    
+    self.cotalkerSeparatorHC = nil;
+    for (NSLayoutConstraint *constraint in self.view.constraints) {
+        if (constraint.firstItem == self.typingIndicatorProxyView && constraint.secondItem == self.scrollViewProxy) {
+            self.cotalkerSeparatorHC = constraint;
+            break;
+        }
+    }
 }
 
 - (void)slk_updateViewConstraints
@@ -2208,8 +2247,9 @@ CGFloat const SLKAutoCompletionViewDefaultHeight = 140.0;
     NSNotificationCenter *notificationCenter = [NSNotificationCenter defaultCenter];
     
     // Keyboard notifications
-    [notificationCenter addObserver:self selector:@selector(slk_willShowOrHideKeyboard:) name:UIKeyboardWillShowNotification object:nil];
-    [notificationCenter addObserver:self selector:@selector(slk_willShowOrHideKeyboard:) name:UIKeyboardWillHideNotification object:nil];
+    [notificationCenter addObserver:self selector:@selector(slk_willShow:) name:UIKeyboardWillShowNotification object:nil];
+    [notificationCenter addObserver:self selector:@selector(slk_willHide:) name:UIKeyboardWillHideNotification object:nil];
+
     [notificationCenter addObserver:self selector:@selector(slk_didShowOrHideKeyboard:) name:UIKeyboardDidShowNotification object:nil];
     [notificationCenter addObserver:self selector:@selector(slk_didShowOrHideKeyboard:) name:UIKeyboardDidHideNotification object:nil];
     
@@ -2363,6 +2403,7 @@ CGFloat const SLKAutoCompletionViewDefaultHeight = 140.0;
     _typingIndicatorViewHC = nil;
     _autoCompletionViewHC = nil;
     _keyboardHC = nil;
+    _cotalkerSeparatorHC = nil;
 }
 
 @end
