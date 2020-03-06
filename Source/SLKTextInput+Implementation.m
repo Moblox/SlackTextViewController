@@ -51,7 +51,7 @@
     
     // Fallback to an empty callback
     if (completion) {
-        completion(nil, nil, NSMakeRange(0,0));
+        //completion(nil, nil, NSMakeRange(0,0));
     }
 }
 

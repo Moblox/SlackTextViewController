@@ -517,19 +517,31 @@ SLKPastableMediaType SLKPastableMediaTypeFromNSString(NSString *string)
 #ifdef __IPHONE_9_0
 - (void)beginFloatingCursorAtPoint:(CGPoint)point
 {
-    [super beginFloatingCursorAtPoint:point];
+    if (@available(iOS 9.0, *)) {
+        [super beginFloatingCursorAtPoint:point];
+    } else {
+        // Fallback on earlier versions
+    }
     
     _trackpadEnabled = YES;
 }
 
 - (void)updateFloatingCursorAtPoint:(CGPoint)point
 {
-    [super updateFloatingCursorAtPoint:point];
+    if (@available(iOS 9.0, *)) {
+        [super updateFloatingCursorAtPoint:point];
+    } else {
+        // Fallback on earlier versions
+    }
 }
 
 - (void)endFloatingCursor
 {
-    [super endFloatingCursor];
+    if (@available(iOS 9.0, *)) {
+        [super endFloatingCursor];
+    } else {
+        // Fallback on earlier versions
+    }
 
     _trackpadEnabled = NO;
     
@@ -927,7 +939,11 @@ typedef void (^SLKKeyCommandHandler)(UIKeyCommand *keyCommand);
     
 #ifdef __IPHONE_9_0
     if ([UIKeyCommand respondsToSelector:@selector(keyCommandWithInput:modifierFlags:action:discoverabilityTitle:)] ) {
-        keyCommand.discoverabilityTitle = title;
+        if (@available(iOS 9.0, *)) {
+            keyCommand.discoverabilityTitle = title;
+        } else {
+            // Fallback on earlier versions
+        }
     }
 #endif
     

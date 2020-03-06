@@ -48,6 +48,15 @@ typedef NS_ENUM(NSUInteger, SLKKeyboardStatus) {
 NS_CLASS_AVAILABLE_IOS(7_0) @interface SLKTextViewController : UIViewController <SLKTextViewDelegate, UITableViewDelegate, UITableViewDataSource,
                                                                                 UICollectionViewDelegate, UICollectionViewDataSource,
                                                                                 UIGestureRecognizerDelegate, UIAlertViewDelegate>
+/** Progress upload bar */
+@property (nonatomic, strong) UIView* cotalkerProgressBar;
+/** Progressbar Auto-Layout height/width constraints used for updating their constants */
+@property (nonatomic, strong) NSLayoutConstraint *cotalkerProgressBarHC;
+@property (nonatomic, strong) NSLayoutConstraint *cotalkerProgressBarWC;
+
+/** iPhoneX */
+@property (nonatomic, strong) UIView* cotalkerXSpacer;
+@property (nonatomic, strong) NSLayoutConstraint* cotalkerXSpacerHC;
 
 /** Toolbar */
 @property (nonatomic, strong) UIView* cotalkerToolBar;
@@ -461,7 +470,7 @@ NS_CLASS_AVAILABLE_IOS(7_0) @interface SLKTextViewController : UIViewController 
  
  @param show YES if the autocompletion view should be shown.
  */
-- (void)showAutoCompletionView:(BOOL)show;
+- (void)showAutoCompletionView:(BOOL)show animated:(BOOL)animated;
 
 /**
  Returns a custom height for the autocompletion view. Default is 0.0.
@@ -500,6 +509,7 @@ NS_CLASS_AVAILABLE_IOS(7_0) @interface SLKTextViewController : UIViewController 
  */
 - (void)acceptAutoCompletionWithString:(NSString *_Nullable)string keepPrefix:(BOOL)keepPrefix;
 
+- (void)setHeight:(CGFloat)newHeight;
 
 #pragma mark - Text Caching
 ///------------------------------------------------

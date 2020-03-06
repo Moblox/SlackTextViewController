@@ -22,7 +22,7 @@ NSString * const SLKKeyboardDidShowNotification =       @"SLKKeyboardDidShowNoti
 NSString * const SLKKeyboardWillHideNotification =      @"SLKKeyboardWillHideNotification";
 NSString * const SLKKeyboardDidHideNotification =       @"SLKKeyboardDidHideNotification";
 
-CGFloat const SLKAutoCompletionViewDefaultHeight = 140.0;
+CGFloat SLKAutoCompletionViewDefaultHeight = 140;
 
 @interface SLKTextViewController ()
 {
@@ -177,7 +177,9 @@ CGFloat const SLKAutoCompletionViewDefaultHeight = 140.0;
     [self.view addSubview:self.autoCompletionView];
     [self.view addSubview:self.typingIndicatorProxyView];
     [self.view addSubview:self.textInputbar];
+    [self.view addSubview:self.cotalkerProgressBar];
     [self.view addSubview:self.cotalkerToolBar];
+    [self.view addSubview:self.cotalkerXSpacer];
 
     [self slk_setupViewConstraints];
     
@@ -188,17 +190,22 @@ CGFloat const SLKAutoCompletionViewDefaultHeight = 140.0;
 {
     [super viewWillAppear:animated];
     
+    if (@available(iOS 11.0, *)) {
+        self.tableView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
+    }
+    
     // Invalidates this flag when the view appears
     self.textView.didNotResignFirstResponder = NO;
     
     // Forces laying out the recently added subviews and update their constraints
-    [self.view layoutIfNeeded];
+    //[self.view layoutIfNeeded];
     
     [UIView performWithoutAnimation:^{
         // Reloads any cached text
         [self slk_reloadTextView];
     }];
 }
+
 
 - (void)viewDidAppear:(BOOL)animated
 {
@@ -283,14 +290,18 @@ CGFloat const SLKAutoCompletionViewDefaultHeight = 140.0;
     if (!_autoCompletionView) {
         _autoCompletionView = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStylePlain];
         _autoCompletionView.translatesAutoresizingMaskIntoConstraints = NO;
-        _autoCompletionView.backgroundColor = [UIColor colorWithWhite:0.97 alpha:1.0];
+        _autoCompletionView.backgroundColor = [UIColor colorWithRed:0.066 green:0.2 blue:0.3333 alpha:0.8];
         _autoCompletionView.scrollsToTop = NO;
         _autoCompletionView.dataSource = self;
         _autoCompletionView.delegate = self;
         
 #ifdef __IPHONE_9_0
         if ([_autoCompletionView respondsToSelector:@selector(cellLayoutMarginsFollowReadableWidth)]) {
-            _autoCompletionView.cellLayoutMarginsFollowReadableWidth = NO;
+            if (@available(iOS 9.0, *)) {
+                _autoCompletionView.cellLayoutMarginsFollowReadableWidth = NO;
+            } else {
+                // Fallback on earlier versions
+            }
         }
 #endif
         
@@ -439,6 +450,8 @@ CGFloat const SLKAutoCompletionViewDefaultHeight = 140.0;
     scrollViewHeight -= self.textInputbarHC.constant;
     scrollViewHeight -= self.autoCompletionViewHC.constant;
     scrollViewHeight -= self.typingIndicatorViewHC.constant;
+    scrollViewHeight -= self.cotalkerToolBarHC.constant;
+    scrollViewHeight -= self.cotalkerXSpacerHC.constant;
     
     if (scrollViewHeight < 0) return 0;
     else return scrollViewHeight;
@@ -689,7 +702,7 @@ CGFloat const SLKAutoCompletionViewDefaultHeight = 140.0;
     }
     
     // Toggles auto-correction if requiered
-    [self slk_enableTypingSuggestionIfNeeded];
+     [self slk_enableTypingSuggestionIfNeeded];
 }
 
 - (void)textSelectionDidChange
@@ -820,6 +833,11 @@ CGFloat const SLKAutoCompletionViewDefaultHeight = 140.0;
     return maxiumumHeight;
 }
 
+- (void)setHeight:(CGFloat)newHeight
+{
+    SLKAutoCompletionViewDefaultHeight = newHeight;
+}
+
 - (void)didPasteMediaContent:(NSDictionary *)userInfo
 {
     // No implementation here. Meant to be overriden in subclass.
@@ -871,7 +889,7 @@ CGFloat const SLKAutoCompletionViewDefaultHeight = 140.0;
     
     __weak typeof(self) weakSelf = self;
     
-    void (^animations)() = ^void(){
+    void (^animations)(void) = ^void(){
         
         weakSelf.textInputbarHC.constant = hidden ? 0 : weakSelf.textInputbar.appropriateHeight;
         
@@ -1014,6 +1032,7 @@ CGFloat const SLKAutoCompletionViewDefaultHeight = 140.0;
                 
                 self.keyboardHC.constant = [self slk_appropriateKeyboardHeightFromRect:keyboardFrame];
                 self.scrollViewHC.constant = [self slk_appropriateScrollViewHeight];
+                [self updatecotalkerXSpacerHCIfNeeded];
                 
                 // layoutIfNeeded must be called before any further scrollView internal adjustments (content offset and size)
                 [self.view layoutIfNeeded];
@@ -1063,6 +1082,7 @@ CGFloat const SLKAutoCompletionViewDefaultHeight = 140.0;
             
             self.keyboardHC.constant = [self slk_appropriateKeyboardHeightFromRect:keyboardFrame];
             self.scrollViewHC.constant = [self slk_appropriateScrollViewHeight];
+            [self updatecotalkerXSpacerHCIfNeeded];
             
             [UIView animateWithDuration:0.25
                                   delay:0.0
@@ -1149,7 +1169,7 @@ CGFloat const SLKAutoCompletionViewDefaultHeight = 140.0;
         return;
     }
     
-    BOOL enable = !self.isAutoCompleting;
+    BOOL enable = true; // !self.isAutoCompleting;
     
     NSString *inputPrimaryLanguage = self.textView.textInputMode.primaryLanguage;
 
@@ -1177,6 +1197,7 @@ CGFloat const SLKAutoCompletionViewDefaultHeight = 140.0;
     
     self.keyboardHC.constant = 0.0;
     self.scrollViewHC.constant = [self slk_appropriateScrollViewHeight];
+    [self updatecotalkerXSpacerHCIfNeeded];
     
     [self slk_hideAutoCompletionViewIfNeeded];
     
@@ -1363,7 +1384,10 @@ CGFloat const SLKAutoCompletionViewDefaultHeight = 140.0;
         
         if ([notification.userInfo objectForKey:@"COT_HEIGHT_MODIFIED"] == nil) {
             CGFloat newHeight = endFrame.size.height;
-            newHeight = newHeight - self.cotalkerToolBarHC.constant - self.textInputbarHC.constant;
+            newHeight = newHeight
+            - self.cotalkerXSpacerHC.constant
+            - self.cotalkerToolBarHC.constant
+            - self.textInputbarHC.constant;
             if (newHeight < 0.0f) newHeight = 0.0f;
             
             self.cotalkerSeparatorHC.constant = newHeight;
@@ -1403,9 +1427,9 @@ CGFloat const SLKAutoCompletionViewDefaultHeight = 140.0;
     // Updates the height constraints' constants
     self.keyboardHC.constant = [self slk_appropriateKeyboardHeightFromNotification:notification];
     self.scrollViewHC.constant = [self slk_appropriateScrollViewHeight];
+    [self updatecotalkerXSpacerHCIfNeeded];
     
-    
-    void (^animations)() = ^void() {
+    void (^animations)(void) = ^void() {
         // Scrolls to bottom only if the keyboard is about to show.
         if (self.shouldScrollToBottomAfterKeyboardShows && self.keyboardStatus == SLKKeyboardStatusWillShow) {
             if (self.isInverted) {
@@ -1629,7 +1653,7 @@ CGFloat const SLKAutoCompletionViewDefaultHeight = 140.0;
     // No implementation here. Meant to be overriden in subclass.
 }
 
-- (void)showAutoCompletionView:(BOOL)show
+- (void)showAutoCompletionView:(BOOL)show animated:(BOOL)animated
 {
     // Reloads the tableview before showing/hiding
     [_autoCompletionView reloadData];
@@ -1652,18 +1676,23 @@ CGFloat const SLKAutoCompletionViewDefaultHeight = 140.0;
         viewHeight = maximumHeight;
     }
     
-    CGFloat contentViewHeight = self.scrollViewHC.constant + self.autoCompletionViewHC.constant;
-    
-    // On iPhone, the auto-completion view can't extend beyond the content view height
-    if (SLK_IS_IPHONE && viewHeight > contentViewHeight) {
-        viewHeight = contentViewHeight;
+    if (animated) {
+        CGFloat contentViewHeight = self.scrollViewHC.constant + self.autoCompletionViewHC.constant;
+        
+        // On iPhone, the auto-completion view can't extend beyond the content view height
+        if (SLK_IS_IPHONE && viewHeight > contentViewHeight) {
+            viewHeight = contentViewHeight;
+        }
     }
+    
     
     self.autoCompletionViewHC.constant = viewHeight;
     
-    [self.view slk_animateLayoutIfNeededWithBounce:self.bounces
-                                           options:UIViewAnimationOptionCurveEaseInOut|UIViewAnimationOptionLayoutSubviews|UIViewAnimationOptionBeginFromCurrentState|UIViewAnimationOptionAllowUserInteraction
-                                        animations:NULL];
+    if (animated) {
+        [self.view slk_animateLayoutIfNeededWithBounce:self.bounces
+                                               options:UIViewAnimationOptionCurveEaseInOut|UIViewAnimationOptionLayoutSubviews|UIViewAnimationOptionBeginFromCurrentState|UIViewAnimationOptionAllowUserInteraction
+                                            animations:NULL];
+    }
 }
 
 - (void)acceptAutoCompletionWithString:(NSString *)string
@@ -1774,7 +1803,7 @@ CGFloat const SLKAutoCompletionViewDefaultHeight = 140.0;
 - (void)slk_hideAutoCompletionViewIfNeeded
 {
     if (self.isAutoCompleting) {
-        [self showAutoCompletionView:NO];
+        [self showAutoCompletionView:NO animated:NO];
     }
 }
 
@@ -2157,16 +2186,25 @@ CGFloat const SLKAutoCompletionViewDefaultHeight = 140.0;
 
 - (void)slk_setupViewConstraints
 {
-    NSDictionary *views = @{@"cotalkerToolBar" : self.cotalkerToolBar,
+    NSDictionary *views = @{@"cotalkerProgressBar" : self.cotalkerProgressBar,
+                            @"cotalkerXSpacer" : self.cotalkerXSpacer,
+                            @"cotalkerToolBar" : self.cotalkerToolBar,
                             @"scrollView": self.scrollViewProxy,
                             @"autoCompletionView": self.autoCompletionView,
                             @"typingIndicatorView": self.typingIndicatorProxyView,
                             @"textInputbar": self.textInputbar,
                             };
     
-    [self.view addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"V:|[scrollView(0@750)]-0-[typingIndicatorView(0)]-0@999-[textInputbar(0)][cotalkerToolBar(0)]|" options:0 metrics:nil views:views]];
+    [self.view addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"V:|[scrollView(0@750)]-0-[typingIndicatorView(0)]-0@999-[textInputbar(0)][cotalkerToolBar(0)][cotalkerXSpacer(0)]|" options:0 metrics:nil views:views]];
+    
+    [self.view addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"V:[cotalkerProgressBar(0)][typingIndicatorView]" options:0 metrics:nil views:views]];
+    
     [self.view addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"V:|-(>=0)-[autoCompletionView(0@750)][typingIndicatorView]" options:0 metrics:nil views:views]];
+    
+    //constraint for progressbar
+    [self.view addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|[cotalkerProgressBar]|" options:0 metrics:nil views:views]];
     [self.view addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|[cotalkerToolBar]|" options:0 metrics:nil views:views]];
+    [self.view addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|[cotalkerXSpacer]|" options:0 metrics:nil views:views]];
     [self.view addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|[scrollView]|" options:0 metrics:nil views:views]];
     [self.view addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|[autoCompletionView]|" options:0 metrics:nil views:views]];
     [self.view addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|[typingIndicatorView]|" options:0 metrics:nil views:views]];
@@ -2176,8 +2214,20 @@ CGFloat const SLKAutoCompletionViewDefaultHeight = 140.0;
     self.autoCompletionViewHC = [self.view slk_constraintForAttribute:NSLayoutAttributeHeight firstItem:self.autoCompletionView secondItem:nil];
     self.typingIndicatorViewHC = [self.view slk_constraintForAttribute:NSLayoutAttributeHeight firstItem:self.typingIndicatorProxyView secondItem:nil];
     self.textInputbarHC = [self.view slk_constraintForAttribute:NSLayoutAttributeHeight firstItem:self.textInputbar secondItem:nil];
+    
+    self.cotalkerProgressBarHC = [self.view slk_constraintForAttribute:NSLayoutAttributeHeight firstItem:self.cotalkerProgressBar secondItem:nil];
+    self.cotalkerProgressBarWC = [self.view slk_constraintForAttribute:NSLayoutAttributeHeight firstItem:self.cotalkerProgressBar secondItem:nil];
+    
     self.cotalkerToolBarHC = [self.view slk_constraintForAttribute:NSLayoutAttributeHeight firstItem:self.cotalkerToolBar secondItem:nil];
-    self.keyboardHC = [self.view slk_constraintForAttribute:NSLayoutAttributeBottom firstItem:self.view secondItem:self.cotalkerToolBar];
+    self.cotalkerXSpacerHC = [self.view slk_constraintForAttribute:NSLayoutAttributeHeight firstItem:self.cotalkerXSpacer secondItem:nil];
+
+    BOOL isIPhoneX = [self isIPhoneX];
+    if (isIPhoneX) {
+        self.cotalkerXSpacerHC.constant = 14.0;
+    } else {
+        self.cotalkerXSpacerHC.constant = 0.0;
+    }
+    self.keyboardHC = [self.view slk_constraintForAttribute:NSLayoutAttributeBottom firstItem:self.view secondItem:self.cotalkerXSpacer];
     
     [self slk_updateViewConstraints];
     
@@ -2190,11 +2240,39 @@ CGFloat const SLKAutoCompletionViewDefaultHeight = 140.0;
     }
 }
 
+- (BOOL)isIPhoneX
+{
+    BOOL isIPhoneX = NO;
+    if (@available(iOS 11.0, *)) {
+        UIWindow *mainWindow = [[[UIApplication sharedApplication] delegate] window];
+        if (mainWindow.safeAreaInsets.top > 0.0) {
+            isIPhoneX = YES;
+        }
+    }
+    return isIPhoneX;
+}
+
+// If iPhoneX, we need to offset content
+- (void)updatecotalkerXSpacerHCIfNeeded
+{
+    BOOL isIPhoneX = [self isIPhoneX];
+    if (!isIPhoneX) {
+        return;
+    }
+    
+    if (self.keyboardHC.constant > 0) {
+        self.cotalkerXSpacerHC.constant = 0;
+    } else {
+        self.cotalkerXSpacerHC.constant = 20;
+    }
+}
+
 - (void)slk_updateViewConstraints
 {
     self.textInputbarHC.constant = self.textInputbar.minimumInputbarHeight;
     self.scrollViewHC.constant = [self slk_appropriateScrollViewHeight];
     self.keyboardHC.constant = [self slk_appropriateKeyboardHeightFromRect:CGRectNull];
+    [self updatecotalkerXSpacerHCIfNeeded];
     
     if (_textInputbar.isEditing) {
         self.textInputbarHC.constant += self.textInputbar.editorContentViewHeight;
@@ -2311,7 +2389,7 @@ CGFloat const SLKAutoCompletionViewDefaultHeight = 140.0;
 #pragma mark - View Auto-Rotation
 
 #ifdef __IPHONE_8_0
-- (void)willTransitionToTraitCollection:(UITraitCollection *)newCollection withTransitionCoordinator:(id <UIViewControllerTransitionCoordinator>)coordinator
+- (void)willTransitionToTraitCollection:(UITraitCollection *)newCollection withT_cotalkerToolBarransitionCoordinator:(id <UIViewControllerTransitionCoordinator>)coordinator
 {
     [super willTransitionToTraitCollection:newCollection withTransitionCoordinator:coordinator];
 }
@@ -2358,6 +2436,28 @@ CGFloat const SLKAutoCompletionViewDefaultHeight = 140.0;
     return _cotalkerToolBar;
 }
 
+-(UIView*) cotalkerXSpacer
+{
+    if (!_cotalkerXSpacer) {
+        _cotalkerXSpacer = [[UIView alloc] init];
+        _cotalkerXSpacer.translatesAutoresizingMaskIntoConstraints = NO;
+        [_cotalkerXSpacer setBackgroundColor:[UIColor colorWithRed:0xEF/255.0 green:0xF1/255.0 blue:0xF2/255.0 alpha:0]];
+    }
+    return _cotalkerXSpacer;
+}
+
+#pragma mark - Getters
+-(UIView*) cotalkerProgressBar
+{
+    if (!_cotalkerProgressBar) {
+        _cotalkerProgressBar = [[UIView alloc] init];
+        _cotalkerProgressBar.translatesAutoresizingMaskIntoConstraints = NO;
+        _cotalkerProgressBar.hidden = YES;
+        [_cotalkerProgressBar setBackgroundColor:[UIColor redColor]];
+    }
+    return _cotalkerProgressBar;
+}
+
 #pragma mark - View lifeterm
 
 - (void)didReceiveMemoryWarning
@@ -2369,7 +2469,11 @@ CGFloat const SLKAutoCompletionViewDefaultHeight = 140.0;
 {
     [self slk_unregisterNotifications];
 
+    _cotalkerProgressBar = nil;
+    _cotalkerProgressBarHC = nil;
+    
     _cotalkerToolBarHC = nil;
+    _cotalkerProgressBarWC = nil;
     _cotalkerToolBar = nil;
     
     _tableView.delegate = nil;

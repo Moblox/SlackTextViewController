@@ -121,6 +121,15 @@ NSString * const SLKTextInputbarDidMoveNotification =   @"SLKTextInputbarDidMove
     return YES;
 }
 
+// Compensate for layout bug in iOS 11 Beta 2
+- (void)layoutSubviews
+{
+    [super layoutSubviews];
+    
+    [self bringSubviewToFront:self.textView];
+    [self bringSubviewToFront:self.rightButton];
+    [self bringSubviewToFront:self.leftButton];
+}
 
 #pragma mark - Getters
 
